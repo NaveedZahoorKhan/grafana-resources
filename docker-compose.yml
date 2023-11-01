@@ -1,0 +1,60 @@
+version: '3'
+volumes:
+  prometheus_data:
+  grafana-storage:
+networks:
+  grafana:
+    driver: bridge
+services:
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:latest
+    container_name: node_exporter
+    command:
+      - '--path.rootfs=/host'
+    network_mode: host
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - '/:/host:ro,rslave'
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    ports:
+      - 9090:9090
+    volumes:
+      - ./prometheus:/etc/prometheus
+      - prometheus_data:/prometheus
+    network_mode: host
+    depends_on:
+      - apache-exporter
+  mssql-exporter:
+    image: awaragi/prometheus-mssql-exporter
+    container_name: prometheus-mssql-exporter
+    network_mode: host
+    environment:
+      - SERVER=127.0.0.1
+      - PORT=6011
+      - USERNAME=conadm
+      - PASSWORD=7r4dTpKma%%smS 
+      - DEBUG=app
+    ports:
+      - 4141:4000
+  apache-exporter:
+    image: bitnami/apache-exporter
+    container_name: apache-exporter
+    ports:
+      - 9117:9117
+    environment:
+      - scrape_url=http://10.0.7.236/server-status?auto
+    network_mode: host
+  grafana-dashboard:
+    image: grafana/grafana-enterprise
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    ports:
+      - 3000:3000
+    container_name: grafana-dashboard
+    network_mode: host
+    depends_on:
+      - prometheus
+      - apache-exporter
