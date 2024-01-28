@@ -1,0 +1,3 @@
+{"level":"info","ts":1706445340.707511,"msg":"Service C is running on port 8082","service":"ServiceC"}
+{"level":"info","ts":1706449265.0145628,"msg":"Finalizing request","service":"ServiceC"}
+{"level":"info","ts":1706449265.0145907,"msg":"Request finalized","service":"ServiceC"}

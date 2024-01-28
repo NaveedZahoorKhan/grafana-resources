@@ -1,0 +1,7 @@
+{"level":"info","ts":1706444595.5625792,"msg":"Service C is running on port 8082","service":"ServiceC"}
+{"level":"info","ts":1706445014.0468514,"msg":"Finalizing request","service":"ServiceC"}
+{"level":"info","ts":1706445014.046885,"msg":"Request finalized","service":"ServiceC"}
+{"level":"info","ts":1706445025.8011937,"msg":"Finalizing request","service":"ServiceC"}
+{"level":"info","ts":1706445025.8012152,"msg":"Request finalized","service":"ServiceC"}
+{"level":"info","ts":1706445035.5513039,"msg":"Finalizing request","service":"ServiceC"}
+{"level":"info","ts":1706445035.5513287,"msg":"Request finalized","service":"ServiceC"}

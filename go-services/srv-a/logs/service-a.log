@@ -1,0 +1,3 @@
+{"level":"info","ts":1706445340.793694,"msg":"Service A is running on port 8080","service":"ServiceA"}
+{"level":"info","ts":1706449265.012797,"msg":"Request received","service":"ServiceA"}
+{"level":"info","ts":1706449265.0149977,"msg":"Request processed","service":"ServiceA"}
