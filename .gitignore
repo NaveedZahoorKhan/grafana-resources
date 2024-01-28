@@ -1,2 +1,9 @@
 goquotes/go.mod
 goquotes/go.sum
+
+*.log
+*.sum
+*.work
+
+tempo/tempo-data/*
+tempo-data/*
