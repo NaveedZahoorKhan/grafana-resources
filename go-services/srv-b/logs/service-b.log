@@ -1,3 +1,0 @@
-{"level":"info","ts":1706445340.7436175,"msg":"Service B is running on port 8081","service":"ServiceB"}
-{"level":"info","ts":1706449265.0136993,"msg":"Processing request","service":"ServiceB"}
-{"level":"info","ts":1706449265.014883,"msg":"Request processed","service":"ServiceB"}
