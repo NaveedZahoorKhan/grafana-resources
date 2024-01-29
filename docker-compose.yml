@@ -71,16 +71,20 @@ services:
       - "9411:9411"   # zipkin
   loki:
     image: grafana/loki:2.9.4
+    container_name: grafana-loki
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
     network_mode: host
   promtail:
     image: grafana/promtail:2.9.4
+    container_name: grafana-promtail
     volumes:
-      - /var/log:/var/log
+      - /var/run/docker.sock:/var/run/docker.sock
+      - /loki/promtail-local-config.yaml:/etc/promtail/config.yaml
+      - /var/lib/docker/containers:/var/lib/docker/containers
     command: -config.file=/etc/promtail/config.yml
-
+    network_mode: host
   grafana-dashboard:
     image: grafana/grafana-enterprise
     volumes:
