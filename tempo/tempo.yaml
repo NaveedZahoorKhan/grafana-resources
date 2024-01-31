@@ -19,8 +19,8 @@ distributor:
     zipkin: null
     otlp:
       protocols:
-        http: null
-        grpc: null
+        http: 
+        grpc: 
     opencensus: null
 ingester:
   max_block_duration: 5m

@@ -6,23 +6,23 @@ networks:
   grafana:
     driver: bridge
 services:
-  node_exporter:
-    image: quay.io/prometheus/node-exporter:latest
-    container_name: node_exporter
-    command:
-      - '--path.rootfs=/host'
-    network_mode: host
-    pid: host
-    restart: unless-stopped
-    volumes:
-      - '/:/host:ro,rslave'
-  # goquotes:
-    # container_name: goquotes
-    # build:
-      # context: goquotes
-      # dockerfile: Dockerfile
-    # ports:
-      # - 8080:8080
+  # node_exporter:
+    # image: quay.io/prometheus/node-exporter:latest
+    # container_name: node_exporter
+    # command:
+      # - '--path.rootfs=/host'
+    # network_mode: host
+    # pid: host
+    # restart: unless-stopped
+    # volumes:
+      # - '/:/host:ro,rslave'
+  goquotes:
+    container_name: goquotes
+    build:
+      context: goquotes
+      dockerfile: Dockerfile
+    ports:
+      - 8083:8080
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
@@ -31,33 +31,36 @@ services:
     volumes:
       - ./prometheus:/etc/prometheus
       - prometheus_data:/prometheus
-    network_mode: host
+    # network_mode: host
     depends_on:
-      - apache-exporter
-  mssql-exporter:
-    image: awaragi/prometheus-mssql-exporter
-    container_name: prometheus-mssql-exporter
-    network_mode: host
-    environment:
-      - SERVER=127.0.0.1
-      - PORT=6011
-      - USERNAME=conadm
-      - PASSWORD=7r4dTpKma%%smS 
-      - DEBUG=app
-    ports:
-      - 4141:4000
-  apache-exporter:
-    image: bitnami/apache-exporter
-    container_name: apache-exporter
-    ports:
-      - 9117:9117
-    environment:
-      - scrape_url=http://10.0.7.236/server-status?auto
-    network_mode: host
+      - goquotes
+      - service-a
+      - service-b
+      - service-c
+      # - apache-exporter
+  # mssql-exporter:
+    # image: awaragi/prometheus-mssql-exporter
+    # container_name: prometheus-mssql-exporter
+    # network_mode: host
+    # environment:
+      # - SERVER=127.0.0.1
+      # - PORT=6011
+      # - USERNAME=conadm
+      # - PASSWORD=7r4dTpKma%%smS 
+      # - DEBUG=app
+    # ports:
+      # - 4141:4000
+  # apache-exporter:
+  #   image: bitnami/apache-exporter
+  #   container_name: apache-exporter
+  #   ports:
+  #     - 9117:9117
+  #   environment:
+  #     - scrape_url=http://10.0.7.236/server-status?auto
+  #   network_mode: host
   grafana-tempo:
     image: grafana/tempo:latest
     container_name: grafana-tempo
-    network_mode: host
     command: [ "-config.file=/etc/tempo.yaml" ]
     volumes:
       - ./tempo/tempo.yaml:/etc/tempo.yaml
@@ -65,7 +68,7 @@ services:
     ports:
       - "14268:14268"  # jaeger ingest
       - "3200:3200"   # tempo
-      - "9095:9095" # tempo grpc
+      - "9096:9095" # tempo grpc
       - "4317:4317"  # otlp grpc
       - "4318:4318"  # otlp http
       - "9411:9411"   # zipkin
@@ -75,16 +78,26 @@ services:
     ports:
       - "3100:3100"
     command: -config.file=/etc/loki/local-config.yaml
-    network_mode: host
   promtail:
     image: grafana/promtail:2.9.4
     container_name: grafana-promtail
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      - /loki/promtail-local-config.yaml:/etc/promtail/config.yaml
-      - /var/lib/docker/containers:/var/lib/docker/containers
+      - ./loki/promtail-local-config.yaml:/etc/promtail/config.yml
+      - /var/log:/var/log
+      - ./go-services/srv-a/logs/service-a.log:/app/srv-a/logs/service-a.log
+      - ./go-services/srv-b/logs/service-b.log:/app/srv-b/logs/service-b.log
+      - ./go-services/srv-c/logs/service-c.log:/app/srv-c/logs/service-c.log
     command: -config.file=/etc/promtail/config.yml
-    network_mode: host
+    ports:
+      - "9080:9080"
+  grafana-mimir:
+    image: grafana/mimir:latest
+    container_name: grafana-mimir
+    ports:
+      - "9009:9009"
+    volumes:
+      - ./mimir/mimir.yaml:/etc/mimir/mimir.yaml
+    command: "-config.file=/etc/mimir/mimir.yaml"
   grafana-dashboard:
     image: grafana/grafana-enterprise
     volumes:
@@ -92,16 +105,14 @@ services:
     ports:
       - 3000:3000
     container_name: grafana-dashboard
-    network_mode: host
-    depends_on:
-      - prometheus
-      - apache-exporter
+    # depends_on:
+      # - prometheus
+      # - apache-exporter
   service-a:
     build:
       context: ./go-services/srv-a
       dockerfile: Dockerfile
     container_name: service-a
-    network_mode: host
     volumes:
       - ./go-services/srv-a/logs:/app/logs
     ports:
@@ -111,7 +122,6 @@ services:
       context: ./go-services/srv-b
       dockerfile: Dockerfile
     container_name: service-b
-    network_mode: host
     volumes:
       - ./go-services/srv-b/logs:/app/logs
     ports:
@@ -121,7 +131,6 @@ services:
       context: ./go-services/srv-c
       dockerfile: Dockerfile
     container_name: service-c
-    network_mode: host
     volumes:
       - ./go-services/srv-c/logs:/app/logs
     ports:

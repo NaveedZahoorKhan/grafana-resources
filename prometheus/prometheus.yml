@@ -16,12 +16,14 @@ rule_files:
   # - "first_rules.yml"
   # - "second_rules.yml"
 
+remote_write:
+  - url: http://grafana-mimir:9009/api/v1/push
 # A scrape configuration containing exactly one endpoint to scrape:
 # Here it's Prometheus itself.
 scrape_configs:
   # The job name is added as a label `job=<job_name>` to any timeseries scraped from this config.
   - job_name: "prometheus"
-
+    honor_labels: true
     # metrics_path defaults to '/metrics'
     # scheme defaults to 'http'.
 
@@ -45,6 +47,21 @@ scrape_configs:
           alias: node
   - job_name: goquotes
     static_configs:
-      - targets: ["localhost:8080"]
+      - targets: ["goquotes:8080"]
         labels:
           alias: goquotes-metrics
+  - job_name: service-a
+    static_configs:
+      - targets: ["service-a:8080"]
+        labels:
+          alias: service-a-metrics
+  - job_name: service-b
+    static_configs:
+      - targets: ["service-b:8081"]
+        labels:
+          alias: service-b-metrics
+  - job_name: service-c
+    static_configs:
+      - targets: ["service-c:8082"]
+        labels:
+          alias: service-c-metrics

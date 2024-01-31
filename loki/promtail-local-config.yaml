@@ -6,21 +6,28 @@ positions:
   filename: /tmp/positions.yaml
 
 clients:
-  - url: http://localhost:3100/loki/api/v1/push
+  - url: http://grafana-loki:3100/loki/api/v1/push
 
 
 scrape_configs:
-  - job_name: 'docker-logs'
-    docker_sd_configs:
-      - host: unix:///var/run/docker.sock
-
-    # Filter to specific containers if needed
-    relabel_configs:
-      - source_labels: [__meta_docker_container_name]
-        regex: 'service-a|service-b|service-c'
-        action: keep
-
-      # Set the path of the log file
-      - source_labels: [__meta_docker_container_name]
-        target_label: __path__
-        replacement: '/var/lib/docker/containers/{{.ID}}/{{.ID}}-json.log'
+  - job_name: service-a-logs
+    static_configs:
+    - targets:
+        - localhost
+      labels:
+        job: service-a
+        __path__: /app/srv-a/logs/*log
+  - job_name: service-b-logs
+    static_configs:
+    - targets:
+        - localhost
+      labels:
+        job: service-b
+        __path__: /app/srv-b/logs/*log
+  - job_name: service-c-logs
+    static_configs:
+    - targets:
+        - localhost
+      labels:
+        job: service-c
+        __path__: /app/srv-c/logs/*log
