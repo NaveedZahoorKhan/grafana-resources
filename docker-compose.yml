@@ -2,9 +2,26 @@ version: '3'
 volumes:
   prometheus_data:
   grafana-storage:
+  oncall_data:
+  redis_data:
 networks:
   grafana:
     driver: bridge
+x-environment: &oncall-environment
+  DATABASE_TYPE: sqlite3
+  BROKER_TYPE: redis
+  BASE_URL: $DOMAIN
+  SECRET_KEY: $SECRET_KEY
+  FEATURE_PROMETHEUS_EXPORTER_ENABLED: ${FEATURE_PROMETHEUS_EXPORTER_ENABLED:-false}
+  PROMETHEUS_EXPORTER_SECRET: ${PROMETHEUS_EXPORTER_SECRET:-}
+  REDIS_URI: redis://redis:6379/0
+  DJANGO_SETTINGS_MODULE: settings.hobby
+  CELERY_WORKER_QUEUE: "default,critical,long,slack,telegram,webhook,retry,celery,grafana"
+  CELERY_WORKER_CONCURRENCY: "1"
+  CELERY_WORKER_MAX_TASKS_PER_CHILD: "100"
+  CELERY_WORKER_SHUTDOWN_INTERVAL: "65m"
+  CELERY_WORKER_BEAT_ENABLED: "True"
+  GRAFANA_API_URL: http://grafana:3000
 services:
   # node_exporter:
     # image: quay.io/prometheus/node-exporter:latest
@@ -33,7 +50,7 @@ services:
       - prometheus_data:/prometheus
     # network_mode: host
     depends_on:
-      - goquotes
+      # - goquotes
       - service-a
       - service-b
       - service-c
@@ -58,6 +75,61 @@ services:
   #   environment:
   #     - scrape_url=http://10.0.7.236/server-status?auto
   #   network_mode: host
+  engine:
+    image: grafana/oncall:dev
+    restart: always
+    ports:
+      - "8085:8080"
+    command: sh -c "uwsgi --ini uwsgi.ini"
+    environment: *oncall-environment
+    volumes:
+      - oncall_data:/var/lib/oncall
+    depends_on:
+      oncall_db_migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+  celery:
+    image: grafana/oncall
+    restart: always
+    command: sh -c "./celery_with_exporter.sh"
+    environment: *oncall-environment
+    volumes:
+      - oncall_data:/var/lib/oncall
+    depends_on:
+      oncall_db_migration:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+
+  oncall_db_migration:
+    image: grafana/oncall
+    command: python manage.py migrate --noinput
+    environment: *oncall-environment
+    volumes:
+      - oncall_data:/var/lib/oncall
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7.0.5
+    restart: always
+    expose:
+      - 6379
+    volumes:
+      - redis_data:/data
+    deploy:
+      resources:
+        limits:
+          memory: 500m
+          cpus: "0.5"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      timeout: 5s
+      interval: 5s
+      retries: 10
+
   grafana-tempo:
     image: grafana/tempo:latest
     container_name: grafana-tempo
@@ -90,6 +162,10 @@ services:
     command: -config.file=/etc/promtail/config.yml
     ports:
       - "9080:9080"
+    depends_on:
+      - service-a
+      - service-b
+      - service-c
   grafana-mimir:
     image: grafana/mimir:latest
     container_name: grafana-mimir
@@ -108,6 +184,11 @@ services:
     # depends_on:
       # - prometheus
       # - apache-exporter
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: grafana-oncall-app
+      GF_INSTALL_PLUGINS: grafana-oncall-app
   service-a:
     build:
       context: ./go-services/srv-a

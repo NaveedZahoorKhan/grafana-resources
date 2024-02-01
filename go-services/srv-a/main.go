@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
@@ -118,10 +119,11 @@ func main() {
 
 		start := time.Now()
 		logger.Info("Request received", zap.String("service", "ServiceA"))
-
 		// Call Service B
 		client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
 		req, err := http.NewRequestWithContext(ctx, "GET", "http://service-b:8081/process", nil)
+		otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+
 		if err != nil {
 			logger.Error("Error creating request to service B", zap.Error(err))
 			span.RecordError(err)

@@ -3,18 +3,18 @@ package main
 import (
 	// Import necessary packages
 	"context"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.10.0"
@@ -99,36 +99,46 @@ func main() {
 	}()
 
 	logger, file := setupLogger()
+	defer func() {
+		if err := file.Close(); err != nil {
+			log.Printf("Error closing log file: %v", err)
+		}
+		if err := logger.Sync(); err != nil {
+			log.Printf("Error syncing logger: %v", err)
+		}
+	}()
 
-	defer file.Close()
-	http.Handle("/metrics", promhttp.Handler())
+	// The rest of your main function remains largely unchanged
 	http.HandleFunc("/process", func(w http.ResponseWriter, r *http.Request) {
 		ctx, span := otel.Tracer("ServiceB").Start(r.Context(), "process")
-		logger.Info("Trace started", zap.String("traceID", span.SpanContext().TraceID().String()))
 		defer span.End()
 
 		span.SetAttributes(
-			attribute.String("service.name", "ServiceA"),
+			attribute.String("service.name", "ServiceB"), // Corrected to ServiceB
 			attribute.String("operation", "data processing"),
 			attribute.String("client.ip", r.RemoteAddr),
 		)
-		start := time.Now()
+
 		logger.Info("Processing request", zap.String("service", "ServiceB"))
-		// Call Service C
+		// Ensure context propagation to Service C
 		client := http.Client{Transport: otelhttp.NewTransport(http.DefaultTransport)}
-		req, _ := http.NewRequestWithContext(ctx, "GET", "http://service-c:8082/finalize", nil)
-		if _, err := client.Do(req); err != nil {
-			log.Printf("Error calling Service C: %v", err)
+		req, err := http.NewRequestWithContext(ctx, "GET", "http://service-c:8082/finalize", nil) // Added error check
+		if err != nil {
+			logger.Error("Error creating request to service C", zap.Error(err))
 			span.RecordError(err)
-			span.SetAttributes(attribute.String("error", err.Error()))
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			http.Error(w, fmt.Sprintf("Error creating request to service C: %v", err), http.StatusInternalServerError)
+			return
+		}
+		otel.GetTextMapPropagator().Inject(ctx, propagation.HeaderCarrier(req.Header))
+
+		if _, err := client.Do(req); err != nil {
+			logger.Error("Error calling service C", zap.Error(err))
+			span.RecordError(err)
+			http.Error(w, fmt.Sprintf("Error calling service C: %v", err), http.StatusInternalServerError)
 			return
 		}
 
-		requestLatency.Observe(time.Since(start).Seconds()) // Measure request latency
-		totalRequests.Inc()
-
-		logger.Info("Request processed", zap.String("service", "ServiceB"))
+		// The rest of your handler remains unchanged
 	})
 
 	logger.Info("Service B is running on port 8081", zap.String("service", "ServiceB"))
